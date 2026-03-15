@@ -1,9 +1,8 @@
-
 name: Build and Deploy Crypto Chatbot to GKE
 
 on:
   push:
-    branches: [main]
+    branches: [master]
 
 env:
   REGION: us-central1
