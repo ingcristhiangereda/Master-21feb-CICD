@@ -10,7 +10,7 @@
     region: "us-central1"
     cluster_name: "test-cluster-a"
     registry_base: "us-central1-docker.pkg.dev/{{ project_id }}/agent-repo"
-    namespace: "ucm-master"
+    k8s_namespace: "ucm-master"
     k8s_dir: "{{ playbook_dir }}/../k8s"
     # image_tag se pasa como --extra-vars
 
@@ -27,10 +27,10 @@
       changed_when: false
 
     # ─────────────────────────────────────
-    # Crear namespace (idempotente)
+    # Crear k8s_namespace (idempotente)
     # ─────────────────────────────────────
-    - name: Aplicar namespace
-      command: kubectl apply -f {{ k8s_dir }}/namespace.yaml
+    - name: Aplicar k8s_namespace
+      command: kubectl apply -f {{ k8s_dir }}/k8s_namespace.yaml
       changed_when: false
 
     # ─────────────────────────────────────
@@ -41,7 +41,7 @@
         state: directory
         suffix: k8s-deploy
       register: tmp_dir
-      
+
     - name: Procesar backend-secret.yaml con la API key en base64
       shell: |
         sed -e 's|PLACEHOLDER|{{ google_api_key | b64encode }}|g' \
@@ -59,6 +59,10 @@
         sed -e 's|PROJECT_ID|{{ project_id }}|g' \
             -e 's|IMAGE_TAG|{{ image_tag }}|g' \
             {{ k8s_dir }}/frontend.yaml > {{ tmp_dir.path }}/frontend.yaml
+    
+    - name: Aplicar secret del backend
+      command: kubectl apply -f {{ tmp_dir.path }}/backend-secret.yaml
+      changed_when: false
 
     # ─────────────────────────────────────
     # Desplegar en GKE
@@ -84,7 +88,7 @@
     # ─────────────────────────────────────
     - name: Esperar a que el backend esté disponible
       command: >
-        kubectl get deployment agent-backend -n {{ namespace }}
+        kubectl get deployment agent-backend -n {{ k8s_namespace }}
           -o jsonpath='{.status.availableReplicas}'
       register: backend_status
       retries: 20
@@ -94,7 +98,7 @@
 
     - name: Esperar a que el frontend esté disponible
       command: >
-        kubectl get deployment agent-frontend -n {{ namespace }}
+        kubectl get deployment agent-frontend -n {{ k8s_namespace }}
           -o jsonpath='{.status.availableReplicas}'
       register: frontend_status
       retries: 20
@@ -103,7 +107,7 @@
       changed_when: false
 
     - name: Obtener pods en ejecución
-      command: kubectl get pods -n {{ namespace }} -o wide
+      command: kubectl get pods -n {{ k8s_namespace }} -o wide
       register: pod_status
 
     - name: Mostrar estado de pods
@@ -114,7 +118,7 @@
     # Obtener IP externa del frontend
     # ─────────────────────────────────────
     - name: Obtener servicio frontend
-      command: kubectl get svc agent-frontend -n {{ namespace }} -o jsonpath='{.status.loadBalancer.ingress[0].ip}'
+      command: kubectl get svc agent-frontend -n {{ k8s_namespace }} -o jsonpath='{.status.loadBalancer.ingress[0].ip}'
       register: frontend_ip
       retries: 10
       delay: 15
