@@ -1,5 +1,5 @@
 ---
-- name: Deploy Crypto Chatbot to GKE
+- name: Deploy Crypto Chatbot to GKE (Secured)
   hosts: localhost
   connection: local
   gather_facts: false
@@ -16,9 +16,6 @@
 
   tasks:
 
-    # ─────────────────────────────────────
-    # Obtener credenciales del clúster GKE
-    # ─────────────────────────────────────
     - name: Obtener credenciales de GKE
       command: >
         gcloud container clusters get-credentials {{ cluster_name }}
@@ -26,27 +23,23 @@
           --project {{ project_id }}
       changed_when: false
 
-    # ─────────────────────────────────────
-    # Crear namespace (idempotente)
-    # ─────────────────────────────────────
     - name: Aplicar namespace
       command: kubectl apply -f {{ k8s_dir }}/namespace.yaml
       changed_when: false
 
-    # ─────────────────────────────────────
-    # Preparar manifiestos con imagen real
-    # ─────────────────────────────────────
+    - name: Crear Secret con GOOGLE_API_KEY
+      shell: |
+        kubectl create secret generic backend-secrets \
+          --namespace={{ namespace }} \
+          --from-literal=GOOGLE_API_KEY="{{ google_api_key }}" \
+          --dry-run=client -o yaml | kubectl apply -f -
+      changed_when: false
+
     - name: Crear directorio temporal para manifiestos
       tempfile:
         state: directory
         suffix: k8s-deploy
       register: tmp_dir
-
-    - name: Procesar backend-secret.yaml con la API key en base64
-      shell: |
-        sed -e 's|PLACEHOLDER|{{ google_api_key | b64encode }}|g' \
-            {{ k8s_dir }}/backend-secret.yaml > {{ tmp_dir.path }}/backend-secret.yaml
-
 
     - name: Procesar backend.yaml con imagen correcta
       shell: |
@@ -59,14 +52,7 @@
         sed -e 's|PROJECT_ID|{{ project_id }}|g' \
             -e 's|IMAGE_TAG|{{ image_tag }}|g' \
             {{ k8s_dir }}/frontend.yaml > {{ tmp_dir.path }}/frontend.yaml
-    
-    - name: Aplicar secret del backend
-      command: kubectl apply -f {{ tmp_dir.path }}/backend-secret.yaml
-      changed_when: false
 
-    # ─────────────────────────────────────
-    # Desplegar en GKE
-    # ─────────────────────────────────────
     - name: Desplegar backend
       command: kubectl apply -f {{ tmp_dir.path }}/backend.yaml
       register: backend_deploy
@@ -81,11 +67,6 @@
           - "Backend: {{ backend_deploy.stdout }}"
           - "Frontend: {{ frontend_deploy.stdout }}"
 
-    # ─────────────────────────────────────
-    # Verificar estado del despliegue
-    # (Autopilot puede tardar varios minutos
-    #  en aprovisionar nodos la primera vez)
-    # ─────────────────────────────────────
     - name: Esperar a que el backend esté disponible
       command: >
         kubectl get deployment agent-backend -n {{ namespace }}
@@ -114,9 +95,6 @@
       debug:
         msg: "{{ pod_status.stdout_lines }}"
 
-    # ─────────────────────────────────────
-    # Obtener IP externa del frontend
-    # ─────────────────────────────────────
     - name: Obtener servicio frontend
       command: kubectl get svc agent-frontend -n {{ namespace }} -o jsonpath='{.status.loadBalancer.ingress[0].ip}'
       register: frontend_ip
@@ -128,9 +106,6 @@
       debug:
         msg: "🚀 Chatbot disponible en: http://{{ frontend_ip.stdout }}"
 
-    # ─────────────────────────────────────
-    # Limpieza
-    # ─────────────────────────────────────
     - name: Eliminar directorio temporal
       file:
         path: "{{ tmp_dir.path }}"
