@@ -11,7 +11,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application files explicitly
 COPY app.py .
 COPY crypto_tools.py .
-COPY .env .
 
 EXPOSE 80
 

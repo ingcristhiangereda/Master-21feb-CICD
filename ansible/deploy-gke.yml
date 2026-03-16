@@ -6,6 +6,7 @@
 
   vars:
     project_id: "{{ lookup('env', 'PROJECT_ID') }}"
+    google_api_key: "{{ lookup('env', 'GOOGLE_API_KEY') }}"
     region: "us-central1"
     cluster_name: "test-cluster-a"
     registry_base: "us-central1-docker.pkg.dev/{{ project_id }}/agent-repo"
