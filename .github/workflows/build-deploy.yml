@@ -68,7 +68,7 @@ jobs:
           exit-code: '1'
           severity: 'CRITICAL,HIGH'
           ignore-unfixed: true
-          trivy-version: '0.51.4'
+          version: '0.51.4'
 
       - name: Push backend image
         run: |
@@ -93,7 +93,7 @@ jobs:
           exit-code: '1'
           severity: 'CRITICAL,HIGH'
           ignore-unfixed: true
-          trivy-version: '0.51.4'
+          version: '0.51.4'
 
       - name: Push frontend image
         run: |
