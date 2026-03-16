@@ -41,6 +41,12 @@
         state: directory
         suffix: k8s-deploy
       register: tmp_dir
+      
+    - name: Procesar backend-secret.yaml con la API key en base64
+      shell: |
+        sed -e 's|PLACEHOLDER|{{ google_api_key | b64encode }}|g' \
+            {{ k8s_dir }}/backend-secret.yaml > {{ tmp_dir.path }}/backend-secret.yaml
+
 
     - name: Procesar backend.yaml con imagen correcta
       shell: |
