@@ -1,5 +1,7 @@
 FROM nginx:alpine
 
+
+RUN apk update && apk upgrade && rm -rf /var/cache/apk/*
 # Remove default nginx static assets
 RUN rm -rf /usr/share/nginx/html/*
 
